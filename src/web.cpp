@@ -68,6 +68,7 @@ void WebHandle()
 						client.println(".button { width:120px; height:55px; padding: 15px 25px; font-size: 20px; cursor: pointer; text-align: center; text-decoration: none; outline: none; color: #fff; background-color: #2196F3; border: none; border-radius: 8px; margin: 4px 2px; }");
 						client.println(".button:hover { background-color: #0354ce; }");
 						client.println(".button:active { background-color: #0b16b3; }");
+						client.println("label {  display: inline-block;  width: 30px; text-align: left;  margin-right: 10px;}");
 						client.println("</style>");
 						//client.println("<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js\"></script>");
 						//client.println("<script src=\"https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.3.1.min.js\"></script>");
@@ -105,7 +106,7 @@ void WebHandle()
 						// device info print
 						client.println("<div style=\"position: relative;\">");
 						client.println("<div style=\"position: relative; bottom: -200px; background-color: rgb(207, 237, 248)\">");
-						client.println("<label id=\"devInfo\">" + GetDeviceInfoString() + "</label>");
+						client.println("<label style=\"width: 600px;\" id=\"devInfo\">" + GetDeviceInfoString() + "</label>");
 						client.println("</div>");
 						client.println("</div>");
 						
