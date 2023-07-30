@@ -181,7 +181,24 @@ String GetDeviceInfoString()
 	int minutes = seconds / 60;
 	seconds = seconds % 60;
 
-	result += ", Uptime:" + String(days) + "d " + String(hours) + ":" + String(minutes) + ":" + String(seconds);
+	String uptime = String(days) + "d ";
+	if (hours < 10)
+	{
+		uptime += "0";
+	}
+	uptime += String(hours) + ":";
+	if (minutes < 10)
+	{
+		uptime += "0";
+	}
+	uptime += String(minutes) + ":";
+	if (seconds < 10)
+	{
+		uptime += "0";
+	}
+	uptime += String(seconds);
+
+	result += ", Uptime:" + uptime;
 
 	return result;
 }
