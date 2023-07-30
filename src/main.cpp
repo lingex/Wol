@@ -17,7 +17,7 @@
 #define TIME_ZONE TZ_Asia_Shanghai
 
 const String hw_ver = "1.0";
-const String sw_ver = "1.0";
+const String sw_ver = "1.1";
 const String dev_name = "Wol-V1.0";
 const String build_time = String(__DATE__) /*+ ", " + String(__TIME__)*/;
 
