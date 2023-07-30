@@ -2,16 +2,17 @@
 #include <WiFiServer.h>
 #include <ArduinoOTA.h>
 #include <OneButton.h>
-//#include <WiFi.h>
 #include <WiFiUdp.h>
 #include <WakeOnLan.h>
 #include <EEPROM.h>
 #include "web.h"
 
+#include <ESP8266Ping.h>
 #include <ESP8266WiFi.h>
 #include <TimeLib.h>
 #include <sntp.h>
 #include <TZ.h>
+
 
 #define TIME_ZONE TZ_Asia_Shanghai
 
@@ -24,15 +25,18 @@ const char* ssid = "your ssid";
 const char* password = "your passwd";
 
 String macConfig = "00:00:00:00:00:00";
+String ipConfig = "192.168.8.1";
 
 //GPIO
 #define PIN_LED 13
 #define PIN_BTN 0
 #define PIN_RELAY 5
 
-#define EEPROM_SIZE 18
+#define EEPROM_SIZE_MAC 18
+#define EEPROM_SIZE_IP_MIN 7
+#define EEPROM_SIZE_IP_MAX 16
+#define EEPROM_SIZE_MAX (EEPROM_SIZE_MAC + EEPROM_SIZE_IP_MAX + 1)
 
-//char buf[32] = {0};
 long check1s = 0;
 long magicT = 0;
 int connLostCnt = 0;
@@ -42,14 +46,14 @@ WiFiUDP UDP;
 WakeOnLan WOL(UDP);
 WiFiServer server(80);
 
-
 void ConfigWifi();
-void setupOTAConfig();
+void SetupOTAConfig();
 void WolGo(String mac, String ip, int port);
 String TargetState();
 String GetDeviceInfoString();
 void GpioInit();
-String GetMacConfig();
+void SaveConfig();
+void LoadConfig();
 
 
 void setup() {
@@ -61,20 +65,13 @@ void setup() {
 	GpioInit();
 
 	ConfigWifi();
-	setupOTAConfig();
+	SetupOTAConfig();
 
 	WOL.calculateBroadcastAddress(WiFi.localIP(), WiFi.subnetMask()); // Optional  => To calculate the broadcast address, otherwise 255.255.255.255 is used (which is denied in some networks).
 	pinMode(PIN_BTN, INPUT);
 	server.begin();
-	EEPROM.begin(EEPROM_SIZE);
-	char buf[EEPROM_SIZE] ;
-	for (size_t i = 0; i < EEPROM_SIZE; i++)
-	{
-		buf[i] = EEPROM.read(i);
-	}
-	EEPROM.end();
-	macConfig = buf;
-	//macConfig =  EEPROM.readString(0);
+
+	LoadConfig();
 
 	configTime(TIME_ZONE, "pool.ntp.org");
 	time_t now = time(nullptr);
@@ -85,7 +82,7 @@ void setup() {
 	}
 	setTime(now);
 
-	Serial.println("Mac address: " + macConfig);
+	Serial.println("Mac address read: " + macConfig + ", ip: " + ipConfig);
 	Serial.println("Device info: " + GetDeviceInfoString());
 }
 
@@ -125,36 +122,45 @@ void loop() {
 
 String TargetState()
 {
-	String ret = "TODO";
+	String ret = "DISABLE";
 
+	if (!WiFi.isConnected())
+	{
+		return "NOCONNECT";
+	}
+
+	if (ipConfig.length() < EEPROM_SIZE_IP_MIN || ipConfig.length() > EEPROM_SIZE_IP_MAX)
+	{
+		return "ERR";
+	}
+
+	//IPAddress ip (192, 168, 8, 158);
+	//if(Ping.ping(ip, 3))
+	Serial.println("Pinging " + ipConfig);
+	if(Ping.ping(ipConfig.c_str(), 3))
+	{
+		Serial.println("Ping ok.");
+		ret = "ON";
+	}
+	else
+	{
+		Serial.println("Ping fail.");
+		ret = "OFF";
+	}
 	return ret;
 }
 
 void WolGo(String mac, String ip, int port)
 {
-	//const char *MACAddress = "00:D8:61:79:28:11";
 	const char *MACAddress = mac.c_str();
 
-	//TODO setting port may cos crash
+	//TODO change the port may cos crash
 
 	digitalWrite(PIN_RELAY, HIGH);
 	digitalWrite(PIN_LED, HIGH);
 	WOL.sendMagicPacket(MACAddress); // Send Wake On Lan packet with the above MAC address. Default to port 9.
 
-	if (mac != macConfig)
-	{
-		EEPROM.begin(EEPROM_SIZE);
-		Serial.println("Saving new mac: " + mac);
-		macConfig = mac;
-		//EEPROM.writeString(0, mac);
-		for (size_t i = 0; i < EEPROM_SIZE; i++)
-		{
-			EEPROM.write(i, mac[i]);
-		}
-		EEPROM.commit();
-		EEPROM.end();
-	}
-	delay(400);
+	delay(500);
 	digitalWrite(PIN_LED, LOW);
 	digitalWrite(PIN_RELAY, LOW);
 }
@@ -206,10 +212,10 @@ void ConfigWifi()
 	Serial.println("Wifi connected");
 }
 
-void setupOTAConfig()
+void SetupOTAConfig()
 {
 	ArduinoOTA.onStart([] {
-
+		digitalWrite(PIN_LED, HIGH);
 	});
 	ArduinoOTA.onProgress([](u32_t pro, u32_t total) {
 		//sprintf(buf, "%d / %d", pro, total);
@@ -218,7 +224,7 @@ void setupOTAConfig()
 
 	});
 	ArduinoOTA.onEnd([] {
-
+		digitalWrite(PIN_LED, LOW);
 	});
 	ArduinoOTA.begin();
 }
@@ -231,7 +237,50 @@ void GpioInit()
 	digitalWrite(PIN_RELAY, LOW);
 }
 
-String GetMacConfig()
+void SaveConfig()
 {
-	return macConfig;
+	EEPROM.begin(EEPROM_SIZE_MAX);
+	Serial.println("Saving para mac: " + macConfig + ", ip: " + ipConfig);
+
+	for (size_t i = 0; i < EEPROM_SIZE_MAC; i++)
+	{
+		EEPROM.write(i, macConfig[i]);
+	}
+
+	int ipSize = ipConfig.length();
+	Serial.println("Debug write ipSize: " + String(ipSize));
+	EEPROM.write(EEPROM_SIZE_MAC, ipSize);
+	for (int i = 0; i < ipSize; i++)
+	{
+		EEPROM.write(i + EEPROM_SIZE_MAC + 1, ipConfig[i]);
+	}
+
+	EEPROM.commit();
+	EEPROM.end();
+}
+
+void LoadConfig()
+{
+	EEPROM.begin(EEPROM_SIZE_MAX);
+	char buf[EEPROM_SIZE_MAC] = {0};
+	for (size_t i = 0; i < EEPROM_SIZE_MAC; i++)
+	{
+		buf[i] = EEPROM.read(i);
+	}
+	macConfig = buf;
+
+	int ipSize = EEPROM.read(EEPROM_SIZE_MAC);
+	if (ipSize >= EEPROM_SIZE_IP_MIN && ipSize <= EEPROM_SIZE_IP_MAX)
+	{
+		ipConfig.clear();
+		Serial.println("Debug read ipSize: " + String(ipSize));
+		for (int i = 0; i < ipSize; i++)
+		{
+			char c = EEPROM.read(i + EEPROM_SIZE_MAC + 1);
+			ipConfig += String(c);
+			//Serial.println("Debug read byte: " + String(c));
+		}
+	}
+	Serial.println("Debug ipConfig size: " + String(ipConfig.length()));
+	EEPROM.end();
 }

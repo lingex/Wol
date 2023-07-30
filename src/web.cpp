@@ -3,11 +3,14 @@
 #include <WiFiServer.h>
 
 extern WiFiServer server;
+extern String macConfig;
+extern String ipConfig;
+
 
 extern String GetDeviceInfoString();
 extern String TargetState();
 extern void WolGo(String mac, String ip, int port);
-extern String GetMacConfig();
+extern void SaveConfig();
 
 // Current time
 unsigned long currentTime = 0;
@@ -18,7 +21,8 @@ const long timeoutTime = 2000;
 
 void WebHandle()
 {
-	WiFiClient client = server.available();   // Listen for incoming clients
+	//WiFiClient client = server.available();   // Listen for incoming clients
+	WiFiClient client = server.accept();   // Listen for incoming clients
 	if (client)
 	{                             // If a new client connects,
 		// Variable to store the HTTP request
@@ -41,8 +45,6 @@ void WebHandle()
 					// that's the end of the client HTTP request, so send a response:
 					if (currentLine.length() == 0)
 					{
-						String mac = GetMacConfig();
-						String ip = "192.168.8.99";
 						int port = 9;
 						// HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
 						// and a content-type so the client knows what's coming, then a blank line:
@@ -79,20 +81,25 @@ void WebHandle()
 						// target text input
 						client.println("<br>");
 						client.println("<br>");
-						client.println("<fieldset style='width:300px; border-radius: 8px' id=\"fieldsetTarget\" onchange=\"ac()\">");
+						client.println("<fieldset style='width:300px; border-radius: 8px' id=\"fieldsetTarget\" onchange=\"wakeup()\">");
 						client.println("<legend align='center'>Target Setting</legend>");
 						client.println("<br>");
 						client.println("<label for=\"macText\">Mac:</label>");
-						client.println("<input type='text' name='macText' value='" + mac + "'/>");
+						client.println("<input type='text' name='macText' value='" + macConfig + "'/>");
 						client.println("<br>");
 						client.println("<br>");
 						client.println("<label for=\"portText\">Port:</label>");
 						client.println("<input type='text' name='portText' value='" + String(port) + "'/>");
 						client.println("<br>");
 						client.println("<br>");
+						client.println("<label for=\"ipText\">Ip:  </label>");
+						client.println("<input type='text' name='ipText' value='" + ipConfig + "'/>");
+						client.println("<br>");
+						client.println("<br>");
 						client.println("</fieldset>");
 						client.println("<br>");
 
+						client.println("<button type=\"button\" class=\"button\" onclick=\"saveBtnAction()\">Save</button>");
 						client.println("<button type=\"button\" class=\"button\" onclick=\"wakeBtnAction()\">Wake</button>");
 						client.println("</p>");
 						// device info print
@@ -106,51 +113,83 @@ void WebHandle()
 						client.println("<script>");
 						client.println("$.ajaxSetup({timeout:1000});");
 						//action
-						client.println("function ac() { ");
+						client.println("function wakeup() { ");
 						client.println("var macVal = document.querySelector(\"input[name='macText']\").value;");
 						client.println("var portVal = document.querySelector(\"input[name='portText']\").value;");
-						client.println("console.log('Magic pack send:' + macVal + ', port:' + portVal);");
+						client.println("var ipVal = document.querySelector(\"input[name='ipText']\").value;");
+						client.println("console.log('Magic pack send:' + macVal + ', port:' + portVal + ', ip:' + ipVal);");
 						client.println("{Connection: close};");
 						client.println("}");
 						//wake btn action
 						client.println("function wakeBtnAction() {");
 						client.println("var macVal = document.querySelector(\"input[name='macText']\").value;");
 						client.println("var portVal = document.querySelector(\"input[name='portText']\").value;");
-						client.println("console.log('Magic pack send:' + macVal + ', port:' + portVal);");
+						client.println("var ipVal = document.querySelector(\"input[name='ipText']\").value;");
+						client.println("console.log('Magic pack send, mac::' + macVal + ', port:' + portVal + ', ip:' + ipVal);");
 						//client.println("console.log(\"" + GetDeviceInfoString() + "\")");
 
-						client.println("$.get(\"/?mac=\" + macVal + \"&port=\" + portVal + \"&\", function(str) ");
+						client.println("$.get(\"/?wake=1&mac=\" + macVal + \"&port=\" + portVal + \"&ip=\" + ipVal + \"&\", function(str) ");
 						client.println("{let start = str.lastIndexOf('/?resp=') + 7; let end = str.indexOf('/#', start);");
 						client.println("let tstr = str.substring(start, end);");
 						//client.println("console.log('str:', str); ");
 						client.println("console.log('Response:', tstr);");
 						client.println("document.getElementById('devInfo').innerHTML = tstr;});");
-
-
 						client.println("{Connection: close};");
 						client.println("}");
+
+						//save btn action
+						client.println("function saveBtnAction() {");
+						client.println("var macVal = document.querySelector(\"input[name='macText']\").value;");
+						client.println("var portVal = document.querySelector(\"input[name='portText']\").value;");
+						client.println("var ipVal = document.querySelector(\"input[name='ipText']\").value;");
+						client.println("console.log('Save para mac:' + macVal + ', port:' + portVal + ', ip:' + ipVal);");
+						//client.println("console.log(\"" + GetDeviceInfoString() + "\")");
+
+						client.println("$.get(\"/?save=1&mac=\" + macVal + \"&port=\" + portVal + \"&ip=\" + ipVal + \"&\", function(str) ");
+						client.println("{let start = str.lastIndexOf('/?resp=') + 7; let end = str.indexOf('/#', start);");
+						client.println("let tstr = str.substring(start, end);");
+						//client.println("console.log('str:', str); ");
+						client.println("console.log('Response:', tstr);");
+						client.println("document.getElementById('devInfo').innerHTML = tstr;});");
+						client.println("{Connection: close};");
+						client.println("}");
+
+
 						client.println("</script></body></html>");
 						
-						//GET /?mac=11-22-33-44-55-66&port=5& HTTP/1.1
-						bool wGo = false;
-						if(header.indexOf("GET /?mac=") >= 0)
+						//GET /?wake=1&mac=11-22-33-44-55-66&port=5& HTTP/1.1
+						if(header.indexOf("&mac=") >= 0)
 						{
-							int pos1 = header.indexOf("mac=");
-							int pos2 = header.indexOf('&', pos1);
-							mac = header.substring(pos1 + 4, pos2);
-							mac.replace('-', ':');
-							wGo = true;
+							int pos1 = header.indexOf("&mac=");
+							int pos2 = header.indexOf('&', pos1 + 5);
+							macConfig = header.substring(pos1 + 5, pos2);
+							macConfig.replace('-', ':');
+						}
+						if(header.indexOf("&ip=") >= 0)
+						{
+							//Serial.println("debug 1->[" + header + "]");
+							int pos1 = header.indexOf("&ip=");
+							int pos2 = header.indexOf('&', pos1 + 4);
+							ipConfig = header.substring(pos1 + 4, pos2);
+							ipConfig.replace('-', '.');
+							//Serial.println("debug 2->[" + ipConfig + "]");
 						}
 						if(header.indexOf("&port=") >= 0)
 						{
 							int pos1 = header.indexOf("&port=");
-							int pos2 = header.indexOf('&', pos1);
+							int pos2 = header.indexOf('&', pos1 + 6);
 							port = header.substring(pos1 + 6, pos2).toInt();
 						}
-						if(wGo)
+						if(header.indexOf("GET /?wake=") >= 0)
 						{
-							Serial.println("Web request: sending magic packets->[" + mac + "]");
-							WolGo(mac, ip, port);
+							Serial.println("Web request: sending magic packets->[" + macConfig + "]");
+							WolGo(macConfig, ipConfig, port);
+							client.println("/?resp=" + GetDeviceInfoString() + "/#");
+						}
+						if(header.indexOf("GET /?save=") >= 0)
+						{
+							Serial.println("Web request: save para->[" + macConfig + ", " + ipConfig + "]");
+							SaveConfig();
 							client.println("/?resp=" + GetDeviceInfoString() + "/#");
 						}
 						Serial.println(header);
