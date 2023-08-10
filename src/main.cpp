@@ -73,14 +73,18 @@ void setup() {
 
 	LoadConfig();
 
-	configTime(TIME_ZONE, "pool.ntp.org");
+	Serial.println("NTP sync");
+	configTime(TIME_ZONE, "time.nist.gov");
 	time_t now = time(nullptr);
-	while (now < SECS_YR_2000)
+	int i = 200;
+	while (now < SECS_YR_2000 && i-- > 0)
 	{
+		Serial.print(".");
 		delay(100);
 		now = time(nullptr);
 	}
 	setTime(now);
+	Serial.println("");
 
 	Serial.println("Mac address read: " + macConfig + ", ip: " + ipConfig);
 	Serial.println("Device info: " + GetDeviceInfoString());
