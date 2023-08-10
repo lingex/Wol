@@ -37,7 +37,7 @@ void WebHandle()
 			if (client.available())
 			{             // if there's bytes to read from the client,
 				char c = client.read();             // read a byte, then
-				Serial.write(c);                    // print it out the serial monitor
+//				Serial.write(c);                    // print it out the serial monitor
 				header += c;
 				if (c == '\n')
 				{                    // if the byte is a newline character
@@ -55,6 +55,7 @@ void WebHandle()
 						// Display the HTML web page
 						client.println("<!DOCTYPE html><html>");
 						client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+						client.println("<title>WOL</title>");
 						//client.println("<link rel=\"icon\" href=\"data:,\">");
 						client.println("<link  rel='shortcut icon' type='image/x-icon' href=\"data:image/x-icon;base64,");
 						client.println(favicon);
@@ -68,7 +69,7 @@ void WebHandle()
 						client.println(".button { width:120px; height:55px; padding: 15px 25px; font-size: 20px; cursor: pointer; text-align: center; text-decoration: none; outline: none; color: #fff; background-color: #2196F3; border: none; border-radius: 8px; margin: 4px 2px; }");
 						client.println(".button:hover { background-color: #0354ce; }");
 						client.println(".button:active { background-color: #0b16b3; }");
-						client.println("label {  display: inline-block;  width: 30px; text-align: left;  margin-right: 10px;}");
+						//client.println("label {  display: inline-block;  width: 30px; text-align: left;  margin-right: 10px;}");
 						client.println("</style>");
 						//client.println("<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js\"></script>");
 						//client.println("<script src=\"https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.3.1.min.js\"></script>");
@@ -106,7 +107,7 @@ void WebHandle()
 						// device info print
 						client.println("<div style=\"position: relative;\">");
 						client.println("<div style=\"position: relative; bottom: -200px; background-color: rgb(207, 237, 248)\">");
-						client.println("<label style=\"width: 600px;\" id=\"devInfo\">" + GetDeviceInfoString() + "</label>");
+						client.println("<label id=\"devInfo\">" + GetDeviceInfoString() + "</label>");
 						client.println("</div>");
 						client.println("</div>");
 						
@@ -193,7 +194,7 @@ void WebHandle()
 							SaveConfig();
 							client.println("/?resp=" + GetDeviceInfoString() + "/#");
 						}
-						Serial.println(header);
+//						Serial.println(header);
 						// The HTTP response ends with another blank line
 						client.println();
 						// Break out of the while loop
