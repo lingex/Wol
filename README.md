@@ -6,6 +6,12 @@ This is an ESP8266 module Wake on LAN box, 3D printed shell. | 这是一个使�
 
 ![image](./doc/3d2.jpg)
 
+![image](./doc/3d3.jpg)
+
+![image](./doc/main.jpg)
+
+![image](./doc/web.jpg)
+
 ## Feature | 特性
  - Web service          |  Web方式控制
  - Physical button      |  物理按键控制
@@ -14,7 +20,6 @@ This is an ESP8266 module Wake on LAN box, 3D printed shell. | 这是一个使�
 
 ## TODO
  - Serial terminal               |  串口终端开发
- - Target PC power state detect  |  目标PC开机状态检测
 
 ## Credits
  - PlatformIO
